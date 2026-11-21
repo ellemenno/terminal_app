@@ -264,24 +264,12 @@ class KeyRecord {
   /// generate a visualization string for the key record
   String get summary => toSummary(this);
 
-  // FIXME: need more bits; may need to rethink need for full unicode range; really only need keycap characters and common accents?
-  // FIXME: we now have 65 non-printing keys identified
-  // FIXME: need to represent press / release --> 1 for press, 0 for release?
-
+  // 32 bits
+  // -------
   //  1 bit to indicate press vs release
   //  8 bits needed for  8 modifier flags
   //  7 bits gives     128 values to id 65 non-printing keys (isPrintable can be computed when needed by checking rune range))
   // 16 bits gives  65,536 values for keyboard-emittable printable glyphs in the Basic Multilingual Plane (BMP): unicode range of U+00020 to U+0ffff (65,503 chars)
-  // -------
-  // 32 bits
-
-  //  1 bit to indicate a printing key
-  //  8 bits needed for  8 modifier flags
-  //  6 bits gives      64 values to id 37 non-printing keys
-  // 17 bits gives 131,072 values for keyboard-emittable printable glyphs: unicode range of U+00020 to U+1ffff (< 131,071 chars, including emoji)
-  // -------
-  // 32 bits
-
   static const int pressedMask = 0x80000000;
   static const int pressedShift = 31;
   static const int modsMask = 0x7f800000;
