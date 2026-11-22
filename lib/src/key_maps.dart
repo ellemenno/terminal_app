@@ -333,12 +333,16 @@ class KeyRecord {
   /// generate a summary string representation of the given [bits].
   ///
   /// ex:
-  /// pressing the G key (a printable key, indicated with ●):
-  /// `↓● g`
+  /// pressing the G key (a printable key, indicated with ●, printed glyph, keyID, and codepoint):
+  /// `↓● g <none> 0x0067`
+  /// releasing the G key
+  /// `↑● g <none> 0x0067`
   /// pressing the left Control key (a non-printable key, indicated with ◌):
-  /// `↓◌ Ctrl+<lcontrol>`
+  /// `↓◌ Ctrl+G <lcontrol> 0x0000` //FIXME - kitty vs win
+  /// `↓◌ Ctrl+␀ <lcontrol> 0x0000` //FIXME - win vs kitty
   /// pressing the left Control, Alt, Shift and G keys:
-  /// `↓● Shift+Alt+Ctrl+G`
+  /// `↓● Shift+Alt+Ctrl+G`               //FIXME - kitty vs win
+  /// `↓◌ Shift+Alt+Ctrl+␀ <none> 0x0000` //FIXME - win vs kitty
   static String toSummary(KeyRecord keyRecord) {
     final int bits = keyRecord.bits;
     final int rune = toRune(bits);
