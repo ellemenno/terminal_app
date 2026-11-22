@@ -11,7 +11,7 @@ void main(List<String> args) {
 class Example implements TerminalApp {
   final int totalUpdates = 500;
   late final TerminalAppHost _host;
-  late final TerminalScreen _screen;
+  //late final TerminalScreen _screen;
   int _updates = 0;
 
   Example(List<String> args) {
@@ -23,7 +23,7 @@ class Example implements TerminalApp {
   void acceptHostAPIs(TerminalAppHost host, TerminalScreen screen) {
     print('[Example.acceptHostAPIs] received host and screen references');
     _host = host;
-    _screen = screen;
+    //_screen = screen;
   }
 
   @override
