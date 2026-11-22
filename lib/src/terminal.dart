@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'stdin_posix.dart';
 import 'stdin_win32.dart';
 import 'terminal_state.dart';

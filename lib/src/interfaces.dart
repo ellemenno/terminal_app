@@ -2,7 +2,8 @@ import 'exit_code.dart';
 
 /// requirements for being able to host a [TerminalApp]
 abstract interface class TerminalAppHost {
-  /// request the application terminate with optional exit code
+  /// request the application terminate with optional exit code.
+  /// see [ExitCode].
   void stop({int exitCode = ExitCode.ok});
 }
 
@@ -21,7 +22,7 @@ abstract interface class TerminalApp {
   void acceptHostAPIs(TerminalAppHost host, TerminalScreen screen);
 
   /// implement to receive notification of key presses with a bit record representing key enum and modifiers.
-  /// see [KeyRecord], [KeyID], [ModFlags]
+  /// see [KeyRecord], [KeyID], [ModFlags].
   void onKeyRecord(int keyRecord);
 
   /// implement to recieve notification of screen resizing with new width and height

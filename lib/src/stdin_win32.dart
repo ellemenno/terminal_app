@@ -3,7 +3,9 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
-import 'key_maps.dart';
+import 'key_id.dart';
+import 'key_record.dart';
+import 'vk_win32.dart';
 import 'ucd.dart' as ucd;
 
 // ffi implementation based on:

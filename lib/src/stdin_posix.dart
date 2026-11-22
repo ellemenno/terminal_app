@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'key_maps.dart';
+import 'key_record.dart';
 import 'ucd.dart' as ucd;
 
 /// handles Posix keyboard input and translates it to [KeyRecord] bits.
@@ -74,9 +74,9 @@ class StdinPosix extends Stream<int> {
     }
 
     if (useKittyParser) {
-      parseKittyKeyBytes(keyBytes, keyRecord);
+      KeyRecord.parseKittyKeyBytes(keyBytes, keyRecord);
     } else {
-      parsePosixKeyBytes(keyBytes, keyRecord);
+      KeyRecord.parsePosixKeyBytes(keyBytes, keyRecord);
     }
 
     return keyRecord.bits;

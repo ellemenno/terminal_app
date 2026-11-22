@@ -59,3 +59,12 @@ void main(List<String> args) {
   ).run(MyApp(args));
 }
 ```
+
+
+## examples
+
+minimal app hooked up to frame and key events:
+
+```console
+dart run example/example.dart
+```

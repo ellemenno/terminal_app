@@ -4,7 +4,6 @@ import 'dart:io';
 import 'exit_code.dart';
 import 'interfaces.dart';
 import 'terminal_state.dart';
-
 import 'terminal.dart';
 import 'terminal_buffer.dart';
 import 'ticker.dart';

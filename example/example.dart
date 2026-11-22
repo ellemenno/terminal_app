@@ -1,5 +1,4 @@
 import 'package:terminal_app/terminal_app.dart';
-import 'package:terminal_app/src/key_maps.dart';
 
 void main(List<String> args) {
   TerminalAppRunner(

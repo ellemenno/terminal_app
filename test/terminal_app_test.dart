@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
-import 'package:terminal_app/src/key_maps.dart';
+import 'package:terminal_app/src/key_id.dart';
+import 'package:terminal_app/src/key_record.dart';
 import 'package:terminal_app/src/ucd.dart' as ucd;
 import 'package:terminal_app/src/vts.dart' as vts;
 
