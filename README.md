@@ -1,4 +1,45 @@
-a minimal library for building interactive terminal applications.
+
+       ▆▆                              ▆▆                     ▆▆
+      ╱▆▆                             ╱╱╱                    ╱▆▆
+     ▆▆▆▆▆▆  ▆▆▆▆▆  ▆▆▆▆▆▆ ▆▆▆▆▆▆▆▆▆▆  ▆▆ ▆▆▆▆▆▆▆   ▆▆▆▆▆▆   ╱▆▆        ▆▆▆▆▆▆   ▆▆▆▆▆▆  ▆▆▆▆▆▆
+    ╱╱╱▆▆╱╱ ▆▆╱╱╱▆▆╱╱▆▆╱╱▆╱╱▆▆╱╱▆▆╱╱▆▆╱▆▆╱╱▆▆╱╱╱▆▆ ╱╱╱╱╱╱▆▆  ╱▆▆       ╱╱╱╱╱╱▆▆ ╱▆▆╱╱╱▆▆╱▆▆╱╱╱▆▆
+      ╱▆▆  ╱▆▆▆▆▆▆▆ ╱▆▆ ╱╱ ╱▆▆ ╱▆▆ ╱▆▆╱▆▆ ╱▆▆  ╱▆▆  ▆▆▆▆▆▆▆  ╱▆▆        ▆▆▆▆▆▆▆ ╱▆▆  ╱▆▆╱▆▆  ╱▆▆
+      ╱▆▆  ╱▆▆╱╱╱╱╱ ╱▆▆    ╱▆▆ ╱▆▆ ╱▆▆╱▆▆ ╱▆▆  ╱▆▆ ▆▆╱╱╱╱▆▆  ╱▆▆       ▆▆╱╱╱╱▆▆ ╱▆▆▆▆▆▆╱╱▆▆▆▆▆▆╱
+      ╱╱▆▆ ╱╱▆▆▆▆▆▆╱▆▆▆    ▆▆▆ ╱▆▆ ╱▆▆╱▆▆ ▆▆▆  ╱▆▆╱╱▆▆▆▆▆▆▆▆ ▆▆▆      ╱╱▆▆▆▆▆▆▆▆╱▆▆╱╱╱╱ ╱▆▆╱╱╱╱
+       ╱╱╱  ╱╱╱╱╱╱╱╱╱╱╱   ╱╱╱╱ ╱╱╱ ╱╱╱╱╱╱╱╱╱╱  ╱╱╱ ╱╱╱╱╱╱╱╱╱╱╱╱╱ ▆▆▆▆▆ ╱╱╱╱╱╱╱╱╱╱▆▆     ╱▆▆
+                                                                ╱╱╱╱╱╱          ╱╱╱     ╱╱╱
+
+    a small library for building interactive terminal applications.
+
+
+## usage
+
+implement `TerminalApp` by adding event handlers to your app class:
+- `acceptHostAPIs()` - get a reference to the app host and screen api
+- `onUpdate()` - update the screen based on state
+- `onKeyRecord()` - update state based on user keyboard input
+- `onResize()` - adjust to new screen size
+
+then instantiate an instance of `TerminalAppRunner`, passing in your app to be run:
+
+```dart
+void main(List<String> args) {
+  TerminalAppRunner(
+    fps: 2,
+    title: 'App Title',
+  ).run(MyApp(args));
+}
+```
+
+
+## examples
+
+minimal app hooked up to frame and key events:
+
+```console
+dart run example/example.dart
+```
+
 
 ## features
 
@@ -11,6 +52,9 @@ terminal management
 - setup and restoration of stdin and stdout state
 - alternate buffer use
 - reading and writing virtual terminal sequences
+  - queries and supports kitty keyboard protocol where available
+  - default support on windows is comparable (down / up + modifiers)
+  - falls back to press-only on posix
 
 
 ## installation
@@ -38,33 +82,4 @@ import package:
 
 ```dart
 import 'package:terminal_app/terminal_app.dart';
-```
-
-
-## usage
-
-add event handler methods to your app class to implement `TerminalApp`:
-- `acceptHostAPIs()`
-- `onUpdate()`
-- `onKeyRecord()`
-- `onResize()`
-
-then instantiate an instance of `TerminalAppRunner`, passing in your app to be run:
-
-```dart
-void main(List<String> args) {
-  TerminalAppRunner(
-    fps: 2,
-    title: 'App Title',
-  ).run(MyApp(args));
-}
-```
-
-
-## examples
-
-minimal app hooked up to frame and key events:
-
-```console
-dart run example/example.dart
 ```
