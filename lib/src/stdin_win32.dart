@@ -206,7 +206,7 @@ class StdinWin32 extends Stream<int> {
       id = win32ToUnNumlock[keyCode] ?? KeyID.none;
     }
 
-    final KeyRecord keyRecord = KeyRecord(modFlags, pressed: true, keyID: id, rune: glyphCode);
+    final KeyRecord keyRecord = KeyRecord(modFlags, down: true, keyID: id, rune: glyphCode);
     final int bits = keyRecord.bits;
     if (debug) {
       print(

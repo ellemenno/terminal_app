@@ -123,44 +123,47 @@ class ModFlags {
 ///
 /// serialization bit layout:
 /// ```
-///  1 00000000 0000000 0000000000000000      pressedMask => 0x80000000
-///  0 11111111 0000000 0000000000000000         modsMask => 0x7f800000
-///  0 00000000 1111111 0000000000000000           idMask => 0x007f0000
-///  0 00000000 0000000 1111111111111111         runeMask => 0x0000ffff
+///  1 00000000 0000000 0000000000000000      downMask = 0x80000000
+///  0 11111111 0000000 0000000000000000      modsMask = 0x7f800000
+///  0 00000000 1111111 0000000000000000        idMask = 0x007f0000
+///  0 00000000 0000000 1111111111111111      runeMask = 0x0000ffff
 ///
-///  0 00000000 0000000 0000000000000000
-///  │ │        │       └╴printable rune (includes space) =>   bits & runeMask
-///  │ │        └╴non-printing key enum                   =>  (bits & idMask) >>> idShift
-///  │ └╴modifier flags                                   =>  (bits & modsMask) >>> modsShift
-///  └╴isPressed (if 1)                                   => ((bits & pressedMask) >>> pressedShift) == 1
+///  0 00000000 0000000 0000000000000000      b
+///  │ │        │       └╴printable rune =>   b & runeMask
+///  │ │        └╴non-printing key enum  =>  (b & idMask) >>> idShift
+///  │ └╴modifier flags                  =>  (b & modsMask) >>> modsShift
+///  └╴is down (if 1)                    => ((b & downMask) >>> downShift) == 1
 /// ```
 ///
 /// when the rune is printable, key id will be [KeyID.none].
 class KeyRecord {
   final ModFlags _modFlags;
 
-  /// `true` when key is being pressed, `false` when releasing
-  bool pressed;
+  /// `true` when key is first pressed down, `false` when released up
+  bool down;
 
-  /// enum representing a non-printing key.
+  /// enum representing the key pressed or released.
   KeyID keyID;
 
-  /// unicode character code. can be converted to String with `String.fromCharCode(rune)`.
+  /// unicode code point for the character resulting from the key event.
+  /// can be converted to String with `String.fromCharCode(rune)`.
   int rune;
 
-  KeyRecord(this._modFlags, {this.pressed = false, this.keyID = KeyID.none, this.rune = 0});
+  /// construct a new key record instance from values.
+  KeyRecord(this._modFlags, {this.down = false, this.keyID = KeyID.none, this.rune = 0});
 
+  /// deserialize a key record bit field in to a new key record instance.
   factory KeyRecord.fromBits(int bits) {
     final ModFlags flags = ModFlags();
     toFlags(bits, flags);
-    return KeyRecord(flags, pressed: toPressed(bits), keyID: toID(bits), rune: toRune(bits));
+    return KeyRecord(flags, down: toDown(bits), keyID: toID(bits), rune: toRune(bits));
   }
 
   /// retrieve a struct holding the modifier values for this key event.
   ModFlags get modFlags => _modFlags;
 
   /// serialize the record info to bit flags in a 32-bit integer.
-  int get bits => toBits(_modFlags, pressed: pressed, id: keyID, rune: rune);
+  int get bits => toBits(_modFlags, down: down, id: keyID, rune: rune);
 
   /// `true` if the record represents a C0 or C1 control code.
   bool get isControl => isControlCode(bits);
@@ -183,8 +186,12 @@ class KeyRecord {
   //  8 bits needed for  8 modifier flags
   //  7 bits gives     128 values to id 65 non-printing keys (isPrintable can be computed when needed by checking rune range))
   // 16 bits gives  65,536 values for keyboard-emittable printable glyphs in the Basic Multilingual Plane (BMP): unicode range of U+00020 to U+0ffff (65,503 chars)
-  static const int pressedMask = 0x80000000;
-  static const int pressedShift = 31;
+
+  /// bitmask for the down bit
+  static const int downMask = 0x80000000;
+
+  /// bitshift for the down bit
+  static const int downShift = 31;
   static const int modsMask = 0x7f800000;
   static const int modsShift = 23;
   static const int idMask = 0x007f0000;
@@ -204,19 +211,19 @@ class KeyRecord {
   ///
   /// [flags] tracks active modifiers. use [id] for non-printing codes, and [rune] for printable glyphs
   /// throws [RangeError] if [rune] is out of valid unicode range as determined by [isValidUnicode()].
-  static int toBits(ModFlags flags, {bool pressed = true, KeyID id = KeyID.none, int rune = 0}) {
+  static int toBits(ModFlags flags, {bool down = true, KeyID id = KeyID.none, int rune = 0}) {
     if (ucd.isNotValidUnicode(rune)) {
       ucd.invalidRune(rune);
     }
-    final int bit = pressed ? 1 : 0;
-    return (bit << pressedShift) |
+    final int bit = down ? 1 : 0;
+    return (bit << downShift) |
         (ModFlags.toBits(flags) << modsShift) |
         (id.index << idShift) |
         rune;
   }
 
-  /// de-serialize the bit representing key press.
-  static bool toPressed(int bits) => (((bits & pressedMask) >>> pressedShift) == 1);
+  /// deserialize the bit representing if the key is pressed down.
+  static bool toDown(int bits) => (((bits & downMask) >>> downShift) == 1);
 
   /// de-serialize the bits representing modifier flags.
   ///
@@ -265,12 +272,12 @@ class KeyRecord {
   static String toSummary(KeyRecord keyRecord) {
     final int bits = keyRecord.bits;
     final int rune = toRune(bits);
-    final bool pressed = toPressed(bits);
+    final bool down = toDown(bits);
     final bool printable = ucd.isPrintableCode(rune);
     final String flags = ModFlags.toSummary(keyRecord.modFlags);
     final String key = String.fromCharCode(ucd.getPrintableCode(rune));
     final String id = ' <${keyRecord.keyID.name}>';
-    return '${pressed ? '↓' : '↑'} ${printable ? '●' : '◌'} ${flags}${key}${id} ${ucd.hexString(rune)}';
+    return '${down ? '↓' : '↑'} ${printable ? '●' : '◌'} ${flags}${key}${id} ${ucd.hexString(rune)}';
   }
 
   /// parse from list of kitty keyboard protocol bytes to [KeyRecord].
@@ -338,7 +345,7 @@ class KeyRecord {
 
     // set press / release boolean
     final bool isRelease = ((mods.length > 1) && (mods[1] == '3'));
-    keyRecord.pressed = !isRelease;
+    keyRecord.down = !isRelease;
 
     if (debug) {
       print(
@@ -582,7 +589,7 @@ class KeyRecord {
     // set defaults
     keyRecord.keyID = KeyID.none;
     keyRecord.rune = 0;
-    keyRecord.pressed = true;
+    keyRecord.down = true;
 
     final int n = bytes.length;
     // single bytes indicate C0 control codes, but may have been typed as Ctrl + printable glyph

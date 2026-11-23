@@ -150,11 +150,11 @@ void main() {
       expect(KeyRecord.isControlCode(bY), isTrue);
       expect(KeyRecord.isControlCode(bN), isFalse);
     });
-    test('can extract the pressed bit', () {
-      final int bY = KeyRecord.toBits(ModFlags(), pressed: true, id: KeyID.down);
-      final int bN = KeyRecord.toBits(ModFlags(), pressed: false, id: KeyID.down);
-      expect(KeyRecord.toPressed(bY), isTrue);
-      expect(KeyRecord.toPressed(bN), isFalse);
+    test('can extract the down bit', () {
+      final int bY = KeyRecord.toBits(ModFlags(), down: true, id: KeyID.down);
+      final int bN = KeyRecord.toBits(ModFlags(), down: false, id: KeyID.down);
+      expect(KeyRecord.toDown(bY), isTrue);
+      expect(KeyRecord.toDown(bN), isFalse);
     });
     test('can extract the key id', () {
       final int b = KeyRecord.toBits(ModFlags(), id: KeyID.up);
