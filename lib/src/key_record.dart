@@ -20,26 +20,26 @@ import 'ucd.dart' as ucd;
 ///  └╴hasNuml          ⇭ Num Lock
 /// ```
 class ModFlags {
-  /// was one of the _Shift_ keys pressed?
+  /// was one of the _Shift_ keys presssed?
   /// check [KeyID] to monitor left and right shift keys explicitly
   bool hasShift = false;
 
-  /// was one of the _Alt_ keys pressed (_Option_ on mac)?
+  /// was one of the _Alt_ keys presssed (_Option_ on mac)?
   /// check [KeyID] to monitor left and right alt keys explicitly
   bool hasAlt = false;
 
-  /// was one of the _Ctrl_ keys pressed?
+  /// was one of the _Control_ keys presssed?
   /// check [KeyID] to monitor left and right control keys explicitly
   bool hasCtrl = false;
 
-  /// was a _Super_ key pressed (win: ⊞ _Windows_, mac: ⌘ _Command_)?
+  /// was a _Super_ key presssed (win: ⊞ _Windows_, mac: ⌘ _Command_)?
   /// check [KeyID] to monitor left and right super keys explicitly
   bool hasSuper = false;
 
-  /// was a _Hyper_ key pressed?
+  /// was a _Hyper_ key presssed?
   bool hasHyper = false;
 
-  /// was a _Meta_ key pressed?
+  /// was a _Meta_ key presssed?
   bool hasMeta = false;
 
   /// is the _CapsLock_ key active?
@@ -72,7 +72,7 @@ class ModFlags {
       (flags.hasCaps ? 0x40 : 0) |
       (flags.hasNuml ? 0x80 : 0);
 
-  /// de-serialize from bits to struct
+  /// deserialize from bits to struct
   static void fromBits(int bits, ModFlags flags) {
     flags.hasShift = (bits & 0x01 == 0x01);
     flags.hasAlt = (bits & 0x02 == 0x02);
@@ -118,7 +118,10 @@ class ModFlags {
   }
 }
 
-/// utility for storing and serializing rune code, key id, and active modifiers,
+/// platform agnostic bit record for keyboard events that can be reported by
+/// the [TerminalAppHost] and recognized by a [TerminalApp].
+///
+/// provides storage and serialization of rune code, key id, and active modifiers,
 /// sending all three values in a single 32-bit int.
 ///
 /// serialization bit layout:
@@ -185,6 +188,7 @@ class KeyRecord {
   //  1 bit to indicate press vs release
   //  8 bits needed for  8 modifier flags
   //  7 bits gives     128 values to id 65 non-printing keys (isPrintable can be computed when needed by checking rune range))
+  // TODO: 7 bits is now enough for all 104 keys
   // 16 bits gives  65,536 values for keyboard-emittable printable glyphs in the Basic Multilingual Plane (BMP): unicode range of U+00020 to U+0ffff (65,503 chars)
 
   /// bitmask for the down bit
@@ -192,10 +196,20 @@ class KeyRecord {
 
   /// bitshift for the down bit
   static const int downShift = 31;
+
+  /// bitmask for the modifier bits
   static const int modsMask = 0x7f800000;
+
+  /// bitshift for the modifier bits
   static const int modsShift = 23;
+
+  /// bitmask for the key id bits
   static const int idMask = 0x007f0000;
+
+  /// bitshift for the key id bits
   static const int idShift = 16;
+
+  /// bitmask for the rune bits (no shift is needed as they are already the low bits)
   static const int runeMask = 0x0000ffff;
 
   /// check if encoded rune is a C0 or C1 control code
@@ -225,7 +239,7 @@ class KeyRecord {
   /// deserialize the bit representing if the key is pressed down.
   static bool toDown(int bits) => (((bits & downMask) >>> downShift) == 1);
 
-  /// de-serialize the bits representing modifier flags.
+  /// deserialize the bits representing modifier flags.
   ///
   /// extracted flag values are set on the provided [ModFlags] object
   static void toFlags(int bits, ModFlags flags) {
@@ -233,7 +247,7 @@ class KeyRecord {
     ModFlags.fromBits(flagBits, flags);
   }
 
-  /// de-serialize the bits representing key id.
+  /// deserialize the bits representing key id.
   ///
   /// if the key record bits have the printable flag set, printable numpad keys will have an id, and all others will have [KeyID.none].
   static KeyID toID(int bits) {
@@ -241,7 +255,7 @@ class KeyRecord {
     return KeyID.values[index];
   }
 
-  /// de-serialize the bits representing rune (an integer character code `U+0000`..`U+FFFF`).
+  /// deserialize the bits representing rune (an integer character code `U+0000`..`U+FFFF`).
   ///
   /// see [ucd.getPrintableCode()] for converting runes to printable glyph codes.
   static int toRune(int bits) => bits & runeMask;
