@@ -23,7 +23,6 @@ class TerminalAppRunner implements TerminalAppHost {
   late final StreamSubscription<int> _typing;
 
   bool _supportsKitty = false;
-  int _status = ExitCode.ok;
 
   /// creates a runner that ticks at a frequency of [fps]
   TerminalAppRunner({int fps = 1, String title = ''}) {
@@ -39,25 +38,19 @@ class TerminalAppRunner implements TerminalAppHost {
     if (!Terminal.meetsRequirements(stdin, stdout)) _cleanExit(ExitCode.err);
     Terminal.rawMode(stdin); // disable echo and line mode on stdin; we will receive input directly
 
-    if (!Platform.isWindows) {
-      _supportsKitty = await Terminal.supportsKittyEnhancements(stdin, stdout);
-      print('supportsKittyEnhancements ? ${_supportsKitty}');
-      if (_supportsKitty) {
-        Terminal.enableKittyEnhancements(stdout, all: true);
-      }
-    }
+    _supportsKitty = await Terminal.supportsKittyEnhancements(stdin, stdout);
+    print('supportsKittyEnhancements ? ${_supportsKitty}');
 
     _app = app;
     _app.acceptHostAPIs((this as TerminalAppHost), (_screen as TerminalScreen));
     _addSignalListeners();
-    _typing = Terminal.getKeyRecordStream(useKittyParser: _supportsKitty).listen(_onType);
+    _typing = Terminal.getKeyRecordStream(stdout, useKittyParser: _supportsKitty).listen(_onType);
     _ticking = _ticker.listen(_onTick);
   }
 
   @override
   void stop({int exitCode = ExitCode.ok}) {
-    _status = exitCode;
-    _stop();
+    _stop(exitCode);
   }
 
   void _addSignalListeners() {
@@ -74,8 +67,7 @@ class TerminalAppRunner implements TerminalAppHost {
         sigwinchSubscription?.cancel();
         sigtermSubscription?.cancel();
         sigintSubscription.cancel();
-        _status = ExitCode.sigint;
-        _stop();
+        _stop(ExitCode.sigint);
       });
 
       if (Platform.isWindows) {
@@ -87,8 +79,7 @@ class TerminalAppRunner implements TerminalAppHost {
           sigwinchSubscription?.cancel();
           sigtermSubscription?.cancel();
           sigintSubscription.cancel();
-          _status = ExitCode.sigterm;
-          _stop();
+          _stop(ExitCode.sigterm);
         });
         sigwinchSubscription = ProcessSignal.sigwinch.watch().listen((ProcessSignal signal) {
           // notification of term window size change --> sigwinch
@@ -105,7 +96,7 @@ class TerminalAppRunner implements TerminalAppHost {
     try {
       final bool keepRunning = _app.onUpdate(dt);
       if (!keepRunning) {
-        _stop();
+        _stop(ExitCode.ok);
       }
     } catch (e, stackTrace) {
       _stopOnError(e, stackTrace);
@@ -130,38 +121,35 @@ class TerminalAppRunner implements TerminalAppHost {
     }
   }
 
-  void _stop() async {
-    if (!Platform.isWindows && _supportsKitty) {
+  void _stop(int exitCode) async {
+    if (_supportsKitty) {
       Terminal.disableKittyEnhancements(stdout);
     }
     Terminal.cookedMode(stdin); // re-enable echo and line mode on stdin
     Terminal.applyState(_priorState); // restore user's previous config
-    await Future.wait<void>(<Future<void>>[
-      _ticking.cancel(),
-      _typing.cancel(),
-    ]);
-    _cleanExit(_status);
+    await _ticking.cancel();
+    await _typing.cancel();
+    _cleanExit(exitCode);
   }
 
   void _stopOnError(Object e, StackTrace stackTrace) {
-    _status = ExitCode.err;
     print(e);
     print(stackTrace);
-    _stop();
+    _stop(ExitCode.err);
   }
 
   static Future<Never> _cleanExit(int appStatus) async {
-    int status = appStatus;
+    int exitCode = appStatus;
     try {
-      await Future.wait<void>(<Future<void>>[
-        //TODO: flush any loggers
-        stdout.flush(),
-        stderr.flush(),
-      ]);
+      // TODO: flush any loggers
+      await stdout.flush();
+      await stderr.flush();
     } catch (e) {
-      status = ExitCode.err;
+      // TODO: implement file logger
+      print('flush error: ${e}');
+      exitCode = ExitCode.err;
     } finally {
-      exit(status);
+      exit(exitCode);
     }
   }
 }

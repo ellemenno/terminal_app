@@ -14,7 +14,10 @@ const int unicodeBmpHigh = 0xffff;
 const int unicodeHigh = 0x10ffff;
 
 /// pretty print integer as hexadecimal value, e.g.: `hexString(15) => 0x000f`
-String hexString(int bits, {int w = 4}) => '0x${bits.toRadixString(16).padLeft(w, '0')}';
+///
+/// [bits] will be converted to hex, prefixed with `0x`, and left-padded with zeros up to width [w].
+String hexString(int bits, {int w = 4, bool prefix = true}) =>
+    '${prefix ? '0x' : ''}${bits.toRadixString(16).padLeft(w, '0')}';
 
 /// generate a binary string of `0`s and `1`s from the given [bits].
 String bitString(int bits, {int depth = 32}) => bits.toRadixString(2).padLeft(depth, '0');

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'stdin_posix.dart';
 import 'stdin_win32.dart';
 import 'terminal_state.dart';
-import 'ucd.dart' as ucd;
 
 /// utilities for managing terminal state and listening to keyboard signals.
 ///
@@ -133,7 +132,11 @@ class Terminal {
   }
 
   /// requests the terminal to enable the indicated Kitty Keyboard Protocol enhancement flags.
-  /// the request is made as a push onto the config stack for easy removal in [disableKittyEnhancements].
+  ///
+  /// the request is made as a push onto the config stack for easy removal in [disableKittyEnhancements]:
+  /// ```
+  /// CSI > <flags> u
+  /// ```
   ///
   /// see: https://sw.kovidgoyal.net/kitty/keyboard-protocol/#progressive-enhancement
   static void enableKittyEnhancements(
@@ -153,14 +156,17 @@ class Terminal {
               (alternates ? 0x04 : 0) |
               (allKeys ? 0x08 : 0) |
               (andText ? 0x10 : 0);
-    print('enable kitty enhancements: push flags ${ucd.hexString(flags)} onto stack..');
     output.write('\x1b[>${flags}u');
     await output.flush();
   }
 
   /// requests the terminal to disable all enhancement flags.
+  ///
+  /// the request is made as a pop from the config stack for whatever was added in [enableKittyEnhancements]:
+  /// ```
+  /// CSI < 1 u
+  /// ```
   static void disableKittyEnhancements(Stdout output) async {
-    print('disable kitty enhancements: pop flags from stack..');
     output.write('\x1b[<1u');
     await output.flush();
   }
@@ -176,8 +182,27 @@ class Terminal {
     //TODO: apply DEC 25, 1049
   }
 
-  /// retrieve a stream for listening to key events as [KeyRecord] bit records
-  static Stream<int> getKeyRecordStream({bool useKittyParser = false}) {
-    return (Platform.isWindows) ? StdinWin32() : StdinPosix(withKittyProtocol: useKittyParser);
+  /// retrieve a stream for listening to stdin key events as [KeyRecord] bit records.
+  ///
+  /// stdout may be sent commands to enable protocol options, e.g. kitty keyboard protocol
+  /// when [useKittyParser] is true,.
+  ///
+  /// Windows Terminal added support for Kitty Keyboard Protocol in 1.25.3131.0,
+  /// but in cmd.exe it does not send bytes for many important non-printing keys:
+  /// - arrow keys, f1..f12, insert, delete, home, end, page up, page down
+  /// so, [preferWin32] can be set `true` to pick [StdinWin32] over [StdinPosix] w/ kitty
+  static Stream<int> getKeyRecordStream(
+    Stdout output, {
+    bool useKittyParser = false,
+    bool preferWin32 = true,
+  }) {
+    if (useKittyParser) {
+      if (preferWin32 && Platform.isWindows) {
+        return StdinWin32();
+      }
+      enableKittyEnhancements(stdout, all: true);
+      return StdinPosix(withKittyProtocol: true);
+    }
+    return (Platform.isWindows) ? StdinWin32() : StdinPosix();
   }
 }
