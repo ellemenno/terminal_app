@@ -6,9 +6,10 @@ import 'ucd.dart' as ucd;
 
 /// handles Posix keyboard input and translates it to [KeyRecord] bits.
 ///
-/// this is used on non-Windows systems like Linus and MacOS.
+/// may be used on Windows in terminals that support the Kitty Keyboard Protocol.
 ///
-/// see [StdinWin32] for the Windows analogue.
+/// without KKP support, this is the fallback parser on non-Windows systems like Linux and MacOS,
+/// and [StdinWin32] is the fallback for Windows.
 class StdinPosix extends Stream<int> {
   /// whether this stream is set up to parse key events per the Kitty Keyboard Protocol
   /// https://sw.kovidgoyal.net/kitty/keyboard-protocol/#an-overview
@@ -49,17 +50,14 @@ class StdinPosix extends Stream<int> {
     List<int> keyBytes,
     KeyRecord keyRecord, {
     bool useKittyParser = false,
-    bool debug = true,
+    bool debug = false,
   }) {
-    // TODO: collect modifiers
     keyRecord.modFlags.hasShift = false;
     keyRecord.modFlags.hasAlt = false;
     keyRecord.modFlags.hasCtrl = false;
-    keyRecord.modFlags.hasSuper = false; // command / apple key
-    keyRecord.modFlags.hasHyper =
-        false; // not a standard 104-key key, but may be assigned via os config
-    keyRecord.modFlags.hasMeta =
-        false; // not a standard 104-key key, but may be assigned via os config
+    keyRecord.modFlags.hasSuper = false;
+    keyRecord.modFlags.hasHyper = false;
+    keyRecord.modFlags.hasMeta = false;
     keyRecord.modFlags.hasCaps = false;
     keyRecord.modFlags.hasNuml = false;
 
@@ -67,10 +65,10 @@ class StdinPosix extends Stream<int> {
       final List<String> codes = <String>[];
       final List<String> chars = <String>[];
       for (final int b in keyBytes) {
-        codes.add(ucd.hexString(b));
-        chars.add(String.fromCharCode(ucd.getPrintableCode(b)).padLeft(4, ' '));
+        codes.add(ucd.hexString(b, w: 2, prefix: false));
+        chars.add(String.fromCharCode(ucd.getPrintableCode(b)).padLeft(2, ' '));
       }
-      print('${codes.join(' ')}\n${chars.join(' ')}');
+      print('bytes: ${codes.join(' ')}\n       ${chars.join(' ')}');
     }
 
     if (useKittyParser) {

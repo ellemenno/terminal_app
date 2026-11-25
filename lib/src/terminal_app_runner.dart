@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'exit_code.dart';
 import 'interfaces.dart';
-import 'terminal_state.dart';
+//import 'terminal_state.dart';
 import 'terminal.dart';
 import 'terminal_buffer.dart';
 import 'ticker.dart';
@@ -13,21 +13,21 @@ import 'ticker.dart';
 /// initializes an update ticker, key and screen size event handlers,
 /// and forwards their events to the matching methods of the [TerminalApp] provided to [run()].
 class TerminalAppRunner implements TerminalAppHost {
-  final TerminalState _priorState = TerminalState();
-  final TerminalState _runningState = TerminalState(hideCursor: true, useAlternateScreen: true);
+  //final TerminalState _priorState = TerminalState();
+  //final TerminalState _runningState = TerminalState(hideCursor: true, useAlternateScreen: true);
 
   late final TerminalApp _app;
   late final TerminalBuffer _screen;
   late final Stream<double> _ticker;
   late final StreamSubscription<double> _ticking;
   late final StreamSubscription<int> _typing;
+  late final String _title;
 
   bool _supportsKitty = false;
 
   /// creates a runner that ticks at a frequency of [fps]
-  TerminalAppRunner({int fps = 1, String title = ''}) {
-    Terminal.captureState(_priorState);
-    if (title.isNotEmpty) _runningState.title = title;
+  TerminalAppRunner({int fps = 1, this._title = ''}) {
+    //Terminal.captureState(_priorState);
     _screen = TerminalBuffer(80, 24);
     _ticker = Ticker.herz(frequency: fps);
   }
@@ -35,16 +35,20 @@ class TerminalAppRunner implements TerminalAppHost {
   /// starts ticking and forwarding events to the provided [TerminalApp].
   /// to stop running (and terminate), the app should return `false` from its `onUpdate()` method.
   void run(TerminalApp app) async {
-    if (!Terminal.meetsRequirements(stdin, stdout)) _cleanExit(ExitCode.err);
-    Terminal.rawMode(stdin); // disable echo and line mode on stdin; we will receive input directly
+    if (!Terminal.meetsRequirements()) _cleanExit(ExitCode.err);
+    Terminal.rawMode(); // disable echo and line mode on stdin; we will receive input directly
 
-    _supportsKitty = await Terminal.supportsKittyEnhancements(stdin, stdout);
-    print('supportsKittyEnhancements ? ${_supportsKitty}');
+    _supportsKitty = await Terminal.supportsKittyEnhancements();
+
+    if (_title.isNotEmpty) {
+      Terminal.setTitle(_title);
+    }
+    Terminal.enterAltBuffer();
 
     _app = app;
     _app.acceptHostAPIs((this as TerminalAppHost), (_screen as TerminalScreen));
     _addSignalListeners();
-    _typing = Terminal.getKeyRecordStream(stdout, useKittyParser: _supportsKitty).listen(_onType);
+    _typing = Terminal.getKeyRecordStream(useKittyParser: _supportsKitty).listen(_onType);
     _ticking = _ticker.listen(_onTick);
   }
 
@@ -123,10 +127,11 @@ class TerminalAppRunner implements TerminalAppHost {
 
   void _stop(int exitCode) async {
     if (_supportsKitty) {
-      Terminal.disableKittyEnhancements(stdout);
+      Terminal.disableKittyEnhancements();
     }
-    Terminal.cookedMode(stdin); // re-enable echo and line mode on stdin
-    Terminal.applyState(_priorState); // restore user's previous config
+    Terminal.leaveAltBuffer();
+    Terminal.cookedMode(); // re-enable echo and line mode on stdin
+    //Terminal.applyState(_priorState); // restore user's previous config
     await _ticking.cancel();
     await _typing.cancel();
     _cleanExit(exitCode);

@@ -1,9 +1,10 @@
+import 'dart:math';
 import 'package:terminal_app/terminal_app.dart';
 
 void main(List<String> args) {
   TerminalAppRunner(
     fps: 3,
-    title: 'App Title',
+    title: 'Example ${Random().nextInt(999).toString().padLeft(3, '0')}',
   ).run(Example(args));
 }
 

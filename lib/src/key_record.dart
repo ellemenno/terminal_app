@@ -37,9 +37,11 @@ class ModFlags {
   bool hasSuper = false;
 
   /// was a _Hyper_ key presssed?
+  /// this is not a standard 104-key key, but may be assigned via os config.
   bool hasHyper = false;
 
   /// was a _Meta_ key presssed?
+  /// this is not a standard 104-key key, but may be assigned via os config.
   bool hasMeta = false;
 
   /// is the _CapsLock_ key active?
@@ -316,7 +318,7 @@ class KeyRecord {
   /// ```
   /// https://sw.kovidgoyal.net/kitty/keyboard-protocol/#an-overview
   ///
-  static void parseKittyKeyBytes(List<int> bytes, KeyRecord keyRecord, {bool debug = true}) {
+  static void parseKittyKeyBytes(List<int> bytes, KeyRecord keyRecord, {bool debug = false}) {
     // set defaults
     keyRecord.keyID = KeyID.none;
     keyRecord.rune = 0;
@@ -326,8 +328,6 @@ class KeyRecord {
     if (n < 3 || bytes[0] != 0x1b || bytes[1] != 0x5b) {
       return;
     }
-
-    //TODO: is there a smarter, more efficient way to do the parsing?
 
     // convert bytes after CSI and before terminal byte into string for processing
     // separate first into fields while running through bytes (this allows simpler handling of repeated delimiters)
