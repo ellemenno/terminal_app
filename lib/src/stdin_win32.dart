@@ -119,14 +119,17 @@ class StdinWin32 extends Stream<int> {
         for (int i = 0; i < pEventsRead.value; i++) {
           final InputRecord record = (pInputRecord + i).ref;
 
-          //TODO: add resizeEvent support
-          if (record.eventType != InputRecordEventType.keyEvent) continue;
+          switch (record.eventType) {
+            case InputRecordEventType.keyEvent:
+              final KeyEventRecord keyEvent = record.event.keyEvent;
+              _controller.add(_getKeyBitRecord(keyEvent, _modFlags));
+              break;
+            case InputRecordEventType.windowBufferSizeEvent:
+              //TODO: add resizeEvent support
+              break;
+            default: continue;
+          }
 
-          final KeyEventRecord keyEvent = record.event.keyEvent;
-          //TODO: track release events
-          if (keyEvent.released) continue;
-
-          _controller.add(_getKeyBitRecord(keyEvent, _modFlags));
         }
       }
     });
@@ -143,8 +146,7 @@ class StdinWin32 extends Stream<int> {
     modFlags.hasShift = keyEvent.shiftPressed;
     modFlags.hasAlt = keyEvent.altPressed;
     modFlags.hasCtrl = keyEvent.ctrlPressed;
-    modFlags.hasSuper =
-        false; // windows key presses are handled and consumed before this app can hear about them
+    modFlags.hasSuper = false; // windows key events are consumed before this process gets them
     modFlags.hasHyper = false; // not supported by windows console key input record
     modFlags.hasMeta = false; // not supported by windows console key input record
     modFlags.hasCaps = keyEvent.capsLockOn;
@@ -206,7 +208,7 @@ class StdinWin32 extends Stream<int> {
       id = win32ToUnNumlock[keyCode] ?? KeyID.none;
     }
 
-    final KeyRecord keyRecord = KeyRecord(modFlags, down: true, keyID: id, rune: glyphCode);
+    final KeyRecord keyRecord = KeyRecord(modFlags, down: keyEvent.pressed, keyID: id, rune: glyphCode);
     final int bits = keyRecord.bits;
     if (debug) {
       print(
