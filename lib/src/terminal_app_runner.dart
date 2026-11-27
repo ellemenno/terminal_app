@@ -21,79 +21,49 @@ class TerminalAppRunner implements TerminalAppHost {
   late final Stream<double> _ticker;
   late final StreamSubscription<double> _ticking;
   late final StreamSubscription<int> _typing;
+  late final StreamSubscription<ProcessSignal> _resizing;
+  late final StreamSubscription<ProcessSignal> _canceling;
+  late final StreamSubscription<ProcessSignal> _terminating;
   late final String _title;
 
   bool _supportsKitty = false;
 
-  /// creates a runner that ticks at a frequency of [fps]
+  /// creates a runner that will tick at a frequency of [fps] and forward events when [run()] is called.
   TerminalAppRunner({int fps = 1, this._title = ''}) {
     //Terminal.captureState(_priorState);
     _screen = TerminalBuffer(80, 24);
     _ticker = Ticker.herz(frequency: fps);
   }
 
-  /// starts ticking and forwarding events to the provided [TerminalApp].
+  /// connects event handlers to the hosted [app] and starts ticking and forwarding events.
   /// to stop running (and terminate), the app should return `false` from its `onUpdate()` method.
   void run(TerminalApp app) async {
     if (!Terminal.meetsRequirements()) _cleanExit(ExitCode.err);
-    Terminal.rawMode(); // disable echo and line mode on stdin; we will receive input directly
 
+    // disable echo and line mode on stdin; we will receive input directly
+    // also check if that input can be delivered in kitty keyboard protocol format
+    Terminal.rawMode();
     _supportsKitty = await Terminal.supportsKittyEnhancements();
 
+    // set title and enter app's own buffer
     if (_title.isNotEmpty) {
       Terminal.setTitle(_title);
     }
     Terminal.enterAltBuffer();
 
+    // connect hosted app with event handlers, and activate event streams
     _app = app;
     _app.acceptHostAPIs((this as TerminalAppHost), (_screen as TerminalScreen));
-    _addSignalListeners();
     _typing = Terminal.getKeyRecordStream(useKittyParser: _supportsKitty).listen(_onType);
+    _resizing = Terminal.getResizeSignalStream().listen(_onResize);
+    _canceling = Terminal.getInterruptSignalStream().listen(_onInterrupt);
+    _terminating = Terminal.getTerminateSignalStream().listen(_onTerminate);
     _ticking = _ticker.listen(_onTick);
   }
 
   @override
   void stop({int exitCode = ExitCode.ok}) {
     _stop(exitCode);
-  }
-
-  void _addSignalListeners() {
-    // https://api.dart.dev/dart-io/ProcessSignal/watch.html
-    // notes:
-    // - SIGINT (ctrl-c) is the only cross-platform signal supported by Dart
-    // - SIGSTP (ctrl-z or Pause/Break) will terminate the process and cannot be intercepted for clean-up
-    late final StreamSubscription<ProcessSignal> sigintSubscription;
-    StreamSubscription<ProcessSignal>? sigtermSubscription;
-    StreamSubscription<ProcessSignal>? sigwinchSubscription;
-    try {
-      sigintSubscription = ProcessSignal.sigint.watch().listen((ProcessSignal signal) {
-        // process interrupt from keyboard, e.g. ctrl-c --> sigint
-        sigwinchSubscription?.cancel();
-        sigtermSubscription?.cancel();
-        sigintSubscription.cancel();
-        _stop(ExitCode.sigint);
-      });
-
-      if (Platform.isWindows) {
-        //TODO: add screen event listener to win32_stdin
-        sigwinchSubscription = null;
-      } else {
-        sigtermSubscription = ProcessSignal.sigterm.watch().listen((ProcessSignal signal) {
-          // process termination politely requested --> sigterm
-          sigwinchSubscription?.cancel();
-          sigtermSubscription?.cancel();
-          sigintSubscription.cancel();
-          _stop(ExitCode.sigterm);
-        });
-        sigwinchSubscription = ProcessSignal.sigwinch.watch().listen((ProcessSignal signal) {
-          // notification of term window size change --> sigwinch
-          _onResize();
-        });
-      }
-    } on SignalException catch (e) {
-      //TODO: how best to signal non-fatal error?
-      print('signal subscription exception: ${e.message}');
-    }
   }
 
   void _onTick(double dt) {
@@ -115,32 +85,57 @@ class TerminalAppRunner implements TerminalAppHost {
     }
   }
 
-  void _onResize() {
+  void _onResize(ProcessSignal signal) {
+    // notification of term window size change --> sigwinch
+    if (signal != ProcessSignal.sigwinch) return;
     try {
-      print('[TerminalAppRunner._onResize()]');
-      //TODO: update screen dimensions
-      //TODO: _app.onResize();
+      final int w = Terminal.cols;
+      final int h = Terminal.rows;
+      print('[TerminalAppRunner._onResize()] ${w}x${h}');
+      _app.onResize(w, h);
     } catch (e, stackTrace) {
       _stopOnError(e, stackTrace);
     }
   }
 
-  void _stop(int exitCode) async {
+  void _onInterrupt(ProcessSignal signal) {
+    // process interrupt from keyboard, e.g. ctrl-c --> sigint
+    if (signal != ProcessSignal.sigint) return;
+    print('[TerminalAppRunner._onInterrupt()] ${signal}');
+    //TODO: forward event to app?
+    _stop(ExitCode.sigint);
+  }
+
+  void _onTerminate(ProcessSignal signal) {
+    // process termination politely requested --> sigterm
+    if (signal != ProcessSignal.sigterm) return;
+    print('[TerminalAppRunner._onTerminate()] ${signal}');
+    _stop(ExitCode.sigterm);
+  }
+
+  Future<Never> _stopOnError(Object e, StackTrace stackTrace) {
+    print(e);
+    print(stackTrace);
+    return _stop(ExitCode.err);
+  }
+
+  Future<Never> _stop(int exitCode) async {
+    // disable event subsriptions
+    await Future.wait(<Future<void>>[
+      _ticking.cancel(),
+      _typing.cancel(),
+      _resizing.cancel(),
+      _terminating.cancel(),
+      _canceling.cancel(),
+    ]);
+    // return user's console to previous state; re-enable echo and line mode on stdin
+    //Terminal.applyState(_priorState); // restore user's previous config
     if (_supportsKitty) {
       Terminal.disableKittyEnhancements();
     }
     Terminal.leaveAltBuffer();
-    Terminal.cookedMode(); // re-enable echo and line mode on stdin
-    //Terminal.applyState(_priorState); // restore user's previous config
-    await _ticking.cancel();
-    await _typing.cancel();
-    _cleanExit(exitCode);
-  }
-
-  void _stopOnError(Object e, StackTrace stackTrace) {
-    print(e);
-    print(stackTrace);
-    _stop(ExitCode.err);
+    Terminal.cookedMode();
+    return _cleanExit(exitCode);
   }
 
   static Future<Never> _cleanExit(int appStatus) async {

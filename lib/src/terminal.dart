@@ -77,6 +77,7 @@ class Terminal {
     List<int> query, {
     int findToken = 0,
     int finalToken = 0,
+    bool debug = false,
   }) async {
     final List<int> response = <int>[];
     bool capturing = true;
@@ -98,7 +99,7 @@ class Terminal {
           break;
         }
       }
-      print('submitQuery - got response ${response}');
+      if (debug) print('submitQuery - got response ${response}');
     } catch (e) {
       print('submitQuery - response so far: ${response}\nerror: ${e}');
     }
@@ -190,4 +191,36 @@ class Terminal {
     }
     return (Platform.isWindows) ? StdinWin32() : StdinPosix();
   }
+
+  /// retrieve a stream for listening to [ProcessSignal.sigint].
+  ///
+  /// notes:
+  /// - SIGINT (ctrl-c) is the only cross-platform signal supported by Dart
+  /// - SIGSTP (ctrl-z or Pause/Break) will terminate the process and cannot be intercepted for clean-up
+  static Stream<ProcessSignal> getInterruptSignalStream() {
+    // https://api.dart.dev/dart-io/ProcessSignal/watch.html
+    return ProcessSignal.sigint.watch();
+  }
+
+  /// retrieve a stream for listening to [ProcessSignal.sigterm].
+  ///
+  /// note: this signal is never sent on Windows
+  static Stream<ProcessSignal> getTerminateSignalStream() {
+    // on Windows, this will never send an event
+    return (Platform.isWindows) ? StdinWin32().watch() : ProcessSignal.sigterm.watch();
+  }
+
+  /// retrieve a stream for listening to [ProcessSignal.sigwinch].
+  ///
+  /// note: this signal is sent for both windows (via [StdinWin32.watch()])
+  /// and posix systems (via [ProcessSignal.sigwinch.watch()]).
+  static Stream<ProcessSignal> getResizeSignalStream() {
+    return (Platform.isWindows) ? StdinWin32().watch() : ProcessSignal.sigwinch.watch();
+  }
+
+  /// retrieve the current terminal width in characters
+  static int get cols => _termOut.terminalColumns;
+
+  /// retrieve the current terminal height in characters
+  static int get rows => _termOut.terminalLines;
 }

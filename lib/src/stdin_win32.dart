@@ -39,7 +39,9 @@ class StdinWin32 extends Stream<int> {
 
   final int _inputHandle;
   final ModFlags _modFlags = ModFlags();
-  final StreamController<int> _controller = StreamController<int>();
+  final StreamController<int> _keyStreamController = StreamController<int>();
+  final StreamController<ProcessSignal> _signalStreamController =
+      StreamController<ProcessSignal>.broadcast();
   bool _running = false;
 
   /// creates or retrieves a [StdinWin32] instance for the given console [handle].
@@ -57,10 +59,6 @@ class StdinWin32 extends Stream<int> {
     );
   }
 
-  StdinWin32._create(this._inputHandle) {
-    _controller.onCancel = _close;
-  }
-
   @override
   StreamSubscription<int> listen(
     void Function(int event)? onData, {
@@ -68,17 +66,23 @@ class StdinWin32 extends Stream<int> {
     void Function()? onDone,
     bool? cancelOnError,
   }) {
-    if (!_running) {
-      _running = true;
-      _eventLoop();
-    }
-
-    return _controller.stream.listen(
+    _open();
+    return _keyStreamController.stream.listen(
       onData,
       onError: onError,
       onDone: onDone,
       cancelOnError: cancelOnError,
     );
+  }
+
+  Stream<ProcessSignal> watch() {
+    _open();
+    return _signalStreamController.stream;
+  }
+
+  StdinWin32._create(this._inputHandle) {
+    _keyStreamController.onCancel = _close;
+    _signalStreamController.onCancel = _close;
   }
 
   Future<void> _eventLoop() async {
@@ -122,22 +126,35 @@ class StdinWin32 extends Stream<int> {
           switch (record.eventType) {
             case InputRecordEventType.keyEvent:
               final KeyEventRecord keyEvent = record.event.keyEvent;
-              _controller.add(_getKeyBitRecord(keyEvent, _modFlags));
+              _keyStreamController.add(_getKeyBitRecord(keyEvent, _modFlags));
               break;
             case InputRecordEventType.windowBufferSizeEvent:
-              //TODO: add resizeEvent support
+              _signalStreamController.add(ProcessSignal.sigwinch);
               break;
-            default: continue;
+            default:
+              continue;
           }
-
         }
       }
     });
   }
 
+  Future<void> _open() async {
+    // open up the streams
+    // all statements here must be idempotent; may be called from watch() multiple times
+    if (!_running) {
+      print('_open() - starting event loop');
+      _running = true;
+      _eventLoop();
+    }
+  }
+
   Future<void> _close() async {
+    // close down the streams
+    // all statements here must be idempotent; may be called from key and signal stream cancel
     _running = false;
-    await _controller.close();
+    await _keyStreamController.close();
+    await _signalStreamController.close();
     _instances.remove(_inputHandle);
   }
 
@@ -208,7 +225,12 @@ class StdinWin32 extends Stream<int> {
       id = win32ToUnNumlock[keyCode] ?? KeyID.none;
     }
 
-    final KeyRecord keyRecord = KeyRecord(modFlags, down: keyEvent.pressed, keyID: id, rune: glyphCode);
+    final KeyRecord keyRecord = KeyRecord(
+      modFlags,
+      down: keyEvent.pressed,
+      keyID: id,
+      rune: glyphCode,
+    );
     final int bits = keyRecord.bits;
     if (debug) {
       print(

@@ -6,5 +6,6 @@ export 'src/terminal_app_runner.dart';
 export 'src/exit_code.dart';
 export 'src/key_id.dart';
 export 'src/key_record.dart';
+export 'src/terminal.dart';
 export 'src/ucd.dart';
 export 'src/vts.dart';
